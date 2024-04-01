@@ -3,8 +3,11 @@ using AplicacionApiPeliculas;
 using AplicacionApiPeliculas.ApiBehavior;
 using AplicacionApiPeliculas.Filtros;
 using AplicacionApiPeliculas.Utilidades;
+using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite;
+using NetTopologySuite.Geometries;
 using System.Globalization;
 
 
@@ -17,13 +20,22 @@ CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
 //builder.Services.AddSingleton<IRepositorio, RepositorioEnMemoria>();
 builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddSingleton(provider =>
+    new MapperConfiguration(config =>
+    {
+        var geometryFactory = provider.GetRequiredService<GeometryFactory>();
+        config.AddProfile(new AutoMapperProfiles(geometryFactory));
+    }).CreateMapper());
+builder.Services.AddSingleton<GeometryFactory>(NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326));
 //almacenar en Azure
 builder.Services.AddTransient<IAlmacenadorArchivos, AlmacenadorAzureStorage>();
 //almacenar en local
 //builder.Services.AddTransient<IAlmacenadorArchivos, AlmacenadorArchivosLocal>();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+    sqlServer => sqlServer.UseNetTopologySuite()));
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 builder.Services.AddResponseCaching();
 
